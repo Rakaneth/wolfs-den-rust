@@ -1,7 +1,6 @@
 rltk::add_wasm_support!();
-use rltk::{Rltk, GameState, Console, RGB, VirtualKeyCode};
+use rltk::{Rltk, GameState, Console, RGB, VirtualKeyCode, RandomNumberGenerator};
 use specs::prelude::*;
-use std::cmp::{max, min};
 #[macro_use]
 extern crate specs_derive;
 
@@ -25,27 +24,15 @@ struct Mobile {}
 struct Player {}
 
 struct State{
-    ecs: World
-}
-
-struct Mover{}
-
-impl<'a> System<'a> for Mover {
-    type SystemData = (ReadStorage<'a, Mobile>, WriteStorage<'a, Position>);
-    
-    fn run(&mut self, (mob, mut pos): Self::SystemData) {
-        for (_mob, pos) in (&mob, &mut pos).join() {
-            pos.x -= 1;
-            if pos.x < 0 {pos.x = 99; }
-        }
-    }
+    ecs: World,
+    rng: RandomNumberGenerator,
 }
 
 impl State {
     fn run_systems(&mut self) {
-        let mut m = Mover{};
-        m.run_now(&self.ecs);
-        self.ecs.maintain();
+        // let mut m = Mover{};
+        // m.run_now(&self.ecs);
+        // self.ecs.maintain();
     }
 }
 
@@ -54,6 +41,8 @@ impl GameState for State {
         ctx.cls();
         player_input(self, ctx);
         self.run_systems();
+        let map = self.ecs.fetch::<Map>();
+        draw_map(&map, ctx);
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
         for (pos, render) in (&positions, &renderables).join() {
@@ -62,12 +51,16 @@ impl GameState for State {
     }
 }
 
-fn clamp<T: PartialOrd> (val: T, low: T, high: T) -> T {
+fn clamp<T: PartialOrd + Copy> (val: T, low: T, high: T) -> T {
     match &val {
         x if x < &low => low,
         x if x > &high => high,
         _ => val
     }
+}
+
+fn between<T: PartialOrd + Copy> (val: T, low: T, high: T) -> bool {
+    clamp(val, low, high) == val
 }
 
 fn try_move_player(dx: i32, dy: i32, ecs: &mut World) {
@@ -76,6 +69,74 @@ fn try_move_player(dx: i32, dy: i32, ecs: &mut World) {
     for (_player, pos) in (&mut players, &mut positions).join() {
         pos.x = clamp(pos.x + dx, 0, 100);
         pos.y = clamp(pos.y + dy, 0, 40);
+    }
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum TileType {
+    Wall, Floor, Door(bool), NullTile
+}
+
+pub struct Map {
+    pub tiles: Vec<TileType>,
+    pub width : i32,
+    pub height: i32,
+}
+
+impl Map {
+    pub fn xy_idx(&self, x: i32, y: i32) -> usize {
+        (y * self.width) as usize + x as usize
+    }
+
+    pub fn in_bounds(&self, x: i32, y: i32) -> bool {
+        between(x, 0, self.width - 1) && between(y, 0, self.height - 1)
+    }
+
+    pub fn get_tile(&self, x: i32, y: i32) -> TileType {
+        if self.in_bounds(x, y) {
+            return self.tiles[self.xy_idx(x, y)];
+        } else {
+            return TileType::NullTile;
+        }
+    }
+
+    pub fn can_support_door(&self, x: i32, y: i32) -> bool {
+        (self.get_tile(x-1, y) == TileType::Wall && self.get_tile(x+1, y) == TileType::Wall) ||
+        (self.get_tile(x, y-1) == TileType::Wall && self.get_tile(x, y+1) == TileType::Wall)
+    }
+
+    pub fn set_tile(&mut self, x: i32, y: i32, t: TileType) {
+        let idx = self.xy_idx(x, y);
+        self.tiles[idx] = t;
+    }
+
+    pub fn new_random(w: i32, h: i32, rng: &mut RandomNumberGenerator) -> Self {
+        let mut map = Map{
+            tiles: vec![TileType::Floor; (w * h) as usize],
+            width: w,
+            height: h
+        };
+        
+        for x in 0..w {
+            map.set_tile(x, 0, TileType::Wall);
+            map.set_tile(x, h - 1, TileType::Wall);
+        }
+
+        for y in 0..h {
+            map.set_tile(0, y, TileType::Wall);
+            map.set_tile(w - 1, y, TileType::Wall);
+        }
+
+        for _i in 0..100 {
+            let x = rng.roll_dice(1, map.width - 1);
+            let y = rng.roll_dice(1, map.height - 1);
+            if map.can_support_door(x, y) {
+                map.set_tile(x, y, TileType::Door(false));
+            } else {
+                map.set_tile(x, y, TileType::Wall);
+            }
+        }
+        map
     }
 }
 
@@ -96,11 +157,41 @@ fn player_input(gs: &mut State, ctx: &mut Rltk) {
     }
 }
 
+fn draw_map(map: &Map, ctx: &mut Rltk) {
+    let mut y = 0;
+    let mut x = 0;
+    for tile in map.tiles.iter() {
+        match tile {
+            TileType::Floor => {
+                ctx.set(x, y, RGB::from_u8(121, 121, 121), RGB::named(rltk::BLACK), rltk::to_cp437('.'));
+            }
+            TileType::Wall => {
+                ctx.set(x, y, RGB::from_u8(191, 191, 191), RGB::named(rltk::BLACK), rltk::to_cp437('#'));
+            }
+            TileType::Door(false) => {
+                ctx.set(x, y, RGB::from_u8(191, 121, 101), RGB::named(rltk::BLACK), rltk::to_cp437('+'));
+            }
+            TileType::Door(true) => {
+                ctx.set(x, y, RGB::from_u8(191, 121, 101), RGB::named(rltk::BLACK), rltk::to_cp437('/'));
+            }
+            TileType::NullTile => {}
+        }
+
+        x += 1;
+        if x > map.width {
+            x = 0;
+            y += 1;
+        }
+    }
+}
+
 fn main() {
     let context = Rltk::init_simple8x16(100, 40, "Hello RLTK", "resources");
     let mut gs = State{
-        ecs: World::new()
+        ecs: World::new(),
+        rng: RandomNumberGenerator::seeded(0xDEADBEEF),
     };
+    gs.ecs.insert(Map::new_random(50, 50, &mut gs.rng));
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Mobile>();
@@ -115,18 +206,5 @@ fn main() {
         })
         .with(Player{})
         .build();
-    for i in 0..10 {
-        gs.ecs
-            .create_entity()
-            .with(Position{ x: i * 5, y: 10})
-            .with(Renderable {
-                glyph: rltk::to_cp437('@'),
-                fg: RGB::named(rltk::RED),
-                bg: RGB::named(rltk::BLACK),
-            })
-            .with(Mobile{})
-            .build();
-    }
-
     rltk::main_loop(context, gs);
 }
