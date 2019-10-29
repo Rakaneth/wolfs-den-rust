@@ -19,3 +19,9 @@ pub struct Mobile {}
 
 #[derive(Component, Debug)]
 pub struct Player {}
+
+#[derive(Component, Debug)]
+pub struct Identity {
+    pub name: String,
+    pub id: String,
+}

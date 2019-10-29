@@ -24,21 +24,31 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) {
 pub fn draw_map(map: &Map, ctx: &mut Rltk) {
     let mut y = 0;
     let mut x = 0;
+    let mut fg: RGB = RGB::named(rltk::BLACK);
+    let mut glyph = '\x00';
     for tile in map.tiles.iter() {
         match tile {
             TileType::Floor => {
-                ctx.set(x, y, RGB::from_u8(121, 121, 121), RGB::named(rltk::BLACK), rltk::to_cp437('.'));
+                fg = RGB::from_u8(121, 121, 121);
+                glyph = '.';
             }
             TileType::Wall => {
-                ctx.set(x, y, RGB::from_u8(191, 191, 191), RGB::named(rltk::BLACK), rltk::to_cp437('#'));
+                fg = RGB::from_u8(191, 191, 191);
+                glyph = '#';
             }
             TileType::Door(false) => {
-                ctx.set(x, y, RGB::from_u8(191, 121, 101), RGB::named(rltk::BLACK), rltk::to_cp437('+'));
+                fg = RGB::from_u8(191, 121, 101);
+                glyph = '+';
             }
             TileType::Door(true) => {
-                ctx.set(x, y, RGB::from_u8(191, 121, 101), RGB::named(rltk::BLACK), rltk::to_cp437('/'));
+                fg = RGB::from_u8(191, 121, 101);
+                glyph = '/';
             }
             TileType::NullTile => {}
+        }
+
+        if glyph > '\x00' {
+            ctx.set(x, y, fg, RGB::named(rltk::BLACK), rltk::to_cp437(glyph));
         }
 
         x += 1;

@@ -52,6 +52,7 @@ fn main() {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Mobile>();
     gs.ecs.register::<Player>();
+    gs.ecs.register::<Identity>();
     gs.ecs
         .create_entity()
         .with(Position{x: 5, y: 5})
@@ -62,5 +63,6 @@ fn main() {
         })
         .with(Player{})
         .build();
+    gs.ecs.insert()
     rltk::main_loop(context, gs);
 }

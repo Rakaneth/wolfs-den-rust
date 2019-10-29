@@ -39,6 +39,19 @@ impl Map {
         self.tiles[idx] = t;
     }
 
+    fn border_walls(&mut self) {
+        let w = self.width;
+        let h = self.height;
+        for x in 0..w {
+            self.set_tile(x, 0, TileType::Wall);
+            self.set_tile(x, h-1, TileType::Wall);
+        }
+        for y in 0..h {
+            self.set_tile(0, y, TileType::Wall);
+            self.set_tile(w-1, y, TileType::Wall);
+        }
+    }
+
     pub fn new_random(w: i32, h: i32, rng: &mut RandomNumberGenerator) -> Self {
         let mut map = Map{
             tiles: vec![TileType::Floor; (w * h) as usize],
@@ -46,15 +59,7 @@ impl Map {
             height: h
         };
         
-        for x in 0..w {
-            map.set_tile(x, 0, TileType::Wall);
-            map.set_tile(x, h - 1, TileType::Wall);
-        }
-
-        for y in 0..h {
-            map.set_tile(0, y, TileType::Wall);
-            map.set_tile(w - 1, y, TileType::Wall);
-        }
+        map.border_walls();
 
         for _i in 0..100 {
             let x = rng.roll_dice(1, map.width - 2);
@@ -65,6 +70,7 @@ impl Map {
                 map.set_tile(x, y, TileType::Wall);
             }
         }
+
         map
     }
 }
