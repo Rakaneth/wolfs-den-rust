@@ -57,8 +57,8 @@ impl Map {
         }
 
         for _i in 0..100 {
-            let x = rng.roll_dice(1, map.width - 1);
-            let y = rng.roll_dice(1, map.height - 1);
+            let x = rng.roll_dice(1, map.width - 2);
+            let y = rng.roll_dice(1, map.height - 2);
             if map.can_support_door(x, y) {
                 map.set_tile(x, y, TileType::Door(false));
             } else {
