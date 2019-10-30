@@ -1,5 +1,6 @@
 use rltk::{RandomNumberGenerator};
-use super::utils::{between};
+use super::utils::{between, clamp};
+use std::cmp::{min, max};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TileType {
@@ -72,5 +73,22 @@ impl Map {
         }
 
         map
+    }
+
+    fn cam (&self, x: i32, y: i32) -> (i32, i32) {
+        let cam_calc = |p: i32, s: i32, m: i32| -> i32 {
+            clamp(p - (s/2), 0, max(0, m - s))
+        };
+        (cam_calc(x, 50, self.width), cam_calc(y, 30, self.height))
+    }
+
+    pub fn map_to_screen(&self, mx: i32, my: i32) -> (i32, i32) {
+        let (cx, cy) = self.cam(mx, my);
+        (mx-cx, my-cy)
+    }
+
+    pub fn screen_to_map(&self, sx: i32, sy: i32, mx: i32, my: i32) -> (i32, i32) {
+        let (cx, cy) = self.cam(mx, my);
+        (sx+cx, sy+cy)
     }
 }

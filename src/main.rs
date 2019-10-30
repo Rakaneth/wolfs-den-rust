@@ -8,6 +8,7 @@ use components::*;
 mod map;
 use map::*;
 mod utils;
+use utils::{between};
 mod player;
 
 mod ui;
@@ -32,11 +33,20 @@ impl GameState for State {
         player_input(self, ctx);
         self.run_systems();
         let map = self.ecs.fetch::<Map>();
-        draw_map(&map, ctx);
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
-        for (pos, render) in (&positions, &renderables).join() {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+        let player = self.ecs.fetch::<Entity>();
+        let pos_comp = self.ecs.read_storage::<Position>();
+        let player_pos = pos_comp.get(*player);
+        if let Some(player_pos) = player_pos {
+            draw_map(&map, player_pos, ctx);
+            let positions = self.ecs.read_storage::<Position>();
+            let renderables = self.ecs.read_storage::<Renderable>();
+            for (pos, render) in (&positions, &renderables).join() {
+                let (sx, sy) = (*map).map_to_screen(pos.x, pos.y);
+                // println!("{},{}", sx, sy);
+                if between(sx, 0, 49) && between(sy, 0, 29) {
+                    ctx.set(sx, sy, render.fg, render.bg, render.glyph);
+                }
+            }
         }
     }
 }
@@ -47,13 +57,13 @@ fn main() {
         ecs: World::new(),
         rng: RandomNumberGenerator::seeded(0xDEADBEEF),
     };
-    gs.ecs.insert(Map::new_random(50, 30, &mut gs.rng));
+    gs.ecs.insert(Map::new_random(50, 50, &mut gs.rng));
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Mobile>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Identity>();
-    gs.ecs
+    let player = gs.ecs
         .create_entity()
         .with(Position{x: 5, y: 5})
         .with(Renderable{
@@ -63,6 +73,6 @@ fn main() {
         })
         .with(Player{})
         .build();
-    gs.ecs.insert()
+    gs.ecs.insert(player);
     rltk::main_loop(context, gs);
 }
