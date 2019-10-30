@@ -8,15 +8,53 @@ use components::*;
 mod map;
 use map::*;
 mod utils;
-use utils::{between};
 mod player;
 
 mod ui;
 use ui::*;
 
+pub struct ScreenManager {
+    pub screens: Vec<Box<dyn Screen>>,
+}
+
+impl ScreenManager {
+    pub fn new() -> Self {
+        ScreenManager {screens: Vec::new()}
+    }
+
+    pub fn push_screen(&mut self, scr: Box<dyn Screen>) {
+        self.screens.push(scr);
+        scr.enter();
+    }
+
+    pub fn pop_screen(&mut self) -> Option<Box<dyn Screen>> {
+        let to_exit = self.screens.pop();
+        if let Some(to_exit) = to_exit {
+            to_exit.exit();
+        }
+        to_exit
+    }
+
+    pub fn clear_screens(&mut self) {
+        while !self.screens.is_empty() {
+            self.pop_screen();
+        }
+    }
+
+    pub fn cur_screen(&mut self) -> Option<&mut Box<dyn Screen>> {
+        if self.screens.is_empty() {
+            panic!("Cannot get current screen from empty screen stack!");
+        }
+        self.screens.last_mut()
+    }
+}
+
+
+
 pub struct State{
     pub ecs: World,
     pub rng: RandomNumberGenerator,
+    pub sm: ScreenManager,
 }
 
 impl State {
@@ -25,29 +63,20 @@ impl State {
         // m.run_now(&self.ecs);
         self.ecs.maintain();
     }
+
+    fn handle(&mut self, ctx: &mut Rltk) {
+        {
+            let last = self.sm.cur_screen().unwrap();
+        }
+        last.handle(self, ctx);
+    }
+
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
-        player_input(self, ctx);
         self.run_systems();
-        let map = self.ecs.fetch::<Map>();
-        let player = self.ecs.fetch::<Entity>();
-        let pos_comp = self.ecs.read_storage::<Position>();
-        let player_pos = pos_comp.get(*player);
-        if let Some(player_pos) = player_pos {
-            draw_map(&map, player_pos, ctx);
-            let positions = self.ecs.read_storage::<Position>();
-            let renderables = self.ecs.read_storage::<Renderable>();
-            for (pos, render) in (&positions, &renderables).join() {
-                let (sx, sy) = (*map).map_to_screen(pos.x, pos.y);
-                // println!("{},{}", sx, sy);
-                if between(sx, 0, 49) && between(sy, 0, 29) {
-                    ctx.set(sx, sy, render.fg, render.bg, render.glyph);
-                }
-            }
-        }
     }
 }
 
@@ -56,6 +85,7 @@ fn main() {
     let mut gs = State{
         ecs: World::new(),
         rng: RandomNumberGenerator::seeded(0xDEADBEEF),
+        sm: ScreenManager::new(),
     };
     gs.ecs.insert(Map::new_random(50, 50, &mut gs.rng));
     gs.ecs.register::<Position>();
