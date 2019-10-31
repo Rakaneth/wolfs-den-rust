@@ -7,6 +7,7 @@ pub enum TileType {
     Wall, Floor, Door(bool), NullTile
 }
 
+#[derive(Clone)]
 pub struct Map {
     pub tiles: Vec<TileType>,
     pub width : i32,
