@@ -17,8 +17,6 @@ use ui::*;
 
 pub struct State{
     pub ecs: World,
-    pub cur_screen: Box<dyn Screen>,
-    screens: HashMap<String, Box<dyn Screen>>,
 }
 
 impl State {
@@ -28,18 +26,16 @@ impl State {
         self.ecs.maintain();
     }
 
-    pub fn set_screen(&mut self, name: &str) {
-        self.cur_screen.exit();
-        let scr = self.screens[name];
-        self.cur_screen = scr;
-
-    }
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
         self.run_systems();
+        let map = self.ecs.fetch::<Map>();
+        let player = self.ecs.fetch::<Entity>();
+        // let pos = 
+        // draw_map(map, )
     }
 }
 
@@ -47,8 +43,6 @@ fn main() {
     let context = Rltk::init_simple8x16(100, 40, "Hello RLTK", "resources");
     let mut gs = State{
         ecs: World::new(),
-        cur_screen: Box::new(MainScreen{}),
-        screens: HashMap::new(),
     };
     gs.ecs.insert(RandomNumberGenerator::seeded(0xDEADBEEF));
     gs.ecs.register::<Position>();
